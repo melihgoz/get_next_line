@@ -6,108 +6,113 @@
 /*   By: megoz <megoz@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/28 18:26:52 by megoz             #+#    #+#             */
-/*   Updated: 2025/01/28 19:38:47 by megoz            ###   ########.fr       */
+/*   Updated: 2025/10/22 10:50:00 by megoz            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "get_next_line.h"
 
-char	*remove_line(char *buffer, char *line)
+/*
+** Helper function to join two strings
+** Frees s1 after joining
+*/
+static char	*join_and_free(char *s1, char *s2, int s2_len)
 {
-	char	*tmp;
-	int		len;
-
-	len = ft_strlen(line);
-	tmp = ft_substr(buffer, len, ft_strlen(buffer) - len);
-	free(buffer);
-	return (tmp);
-}
-
-char	*ft_strjoin(char *s1, char *s2)
-{
-	size_t	len1;
-	size_t	len2;
 	char	*result;
+	int		i;
+	int		j;
 
-	if (!s1 || !s2)
-		return (0);
-	len1 = ft_strlen(s1);
-	len2 = ft_strlen(s2);
-	result = (char *)malloc(len1 + len2 + 1);
+	i = 0;
+	while (s1 && s1[i])
+		i++;
+	result = malloc(i + s2_len + 1);
 	if (!result)
-		return (0);
-	ft_memcpy(result, s1, len1);
-	ft_memcpy(result + len1, s2, len2);
+		return (NULL);
+	i = 0;
+	while (s1 && s1[i])
+	{
+		result[i] = s1[i];
+		i++;
+	}
+	j = 0;
+	while (j < s2_len)
+		result[i++] = s2[j++];
+	result[i] = '\0';
 	free(s1);
-	result[len1 + len2] = '\0';
 	return (result);
 }
 
-char	*reading_loop(char *buffer, int fd)
-{
-	int		readed;
-	char	*reading;
-
-	readed = 1;
-	while (ft_strchr(buffer, '\n') == -1 && readed != 0)
-	{
-		reading = malloc(sizeof(char) * (BUFFER_SIZE + 1));
-		if (!reading)
-			return (NULL);
-		readed = read(fd, reading, BUFFER_SIZE);
-		if (readed < 0)
-		{
-			free(reading);
-			free(buffer);
-			return (NULL);
-		}
-		reading[readed] = '\0';
-		buffer = ft_strjoin(buffer, reading);
-		free(reading);
-	}
-	return (buffer);
-}
-
-char	*read_and_fill_line(int fd, char **buffer)
-{
-	char	*line;
-	int		i;
-
-	*buffer = reading_loop(*buffer, fd);
-	if (!*buffer)
-		return (NULL);
-	if (!**buffer)
-	{
-		free(*buffer);
-		*buffer = NULL;
-		return (NULL);
-	}
-	i = ft_strchr(*buffer, '\n');
-	if (i == -1)
-		i = ft_strlen(*buffer);
-	if ((*buffer)[i] == '\n')
-		i++;
-	line = ft_substr(*buffer, 0, i);
-	return (line);
-}
-
+/*
+** Main function that reads from fd and returns one line at a time
+** Uses read() from <unistd.h> to read BUFFER_SIZE bytes at a time
+** Returns NULL when EOF or error
+*/
 char	*get_next_line(int fd)
 {
-	static char	*buffer;
+	static char	*storage;
+	char		buffer[BUFFER_SIZE + 1];
 	char		*line;
+	int			bytes_read;
+	int			i;
+	int			j;
 
 	if (fd < 0 || BUFFER_SIZE <= 0)
 		return (NULL);
-	if (!buffer)
+	bytes_read = 1;
+	while (bytes_read > 0)
 	{
-		buffer = malloc(sizeof(char) * 1);
-		if (!buffer)
+		i = find_newline(storage);
+		if (i >= 0)
+			break ;
+		bytes_read = read(fd, buffer, BUFFER_SIZE);
+		if (bytes_read < 0)
+			return (free(storage), storage = NULL, NULL);
+		buffer[bytes_read] = '\0';
+		storage = join_and_free(storage, buffer, bytes_read);
+		if (!storage)
 			return (NULL);
-		buffer[0] = '\0';
 	}
-	line = read_and_fill_line(fd, &buffer);
+	if (!storage || !storage[0])
+		return (free(storage), storage = NULL, NULL);
+	i = find_newline(storage);
+	if (i < 0)
+	{
+		i = 0;
+		while (storage[i])
+			i++;
+	}
+	else
+		i++;
+	line = malloc(i + 1);
 	if (!line)
-		return (NULL);
-	buffer = remove_line(buffer, line);
+		return (free(storage), storage = NULL, NULL);
+	j = 0;
+	while (j < i)
+	{
+		line[j] = storage[j];
+		j++;
+	}
+	line[j] = '\0';
+	buffer[0] = '\0';
+	j = 0;
+	while (storage[i])
+		buffer[j++] = storage[i++];
+	buffer[j] = '\0';
+	free(storage);
+	storage = NULL;
+	if (buffer[0])
+	{
+		storage = malloc(j + 1);
+		if (storage)
+		{
+			i = 0;
+			while (i < j)
+			{
+				storage[i] = buffer[i];
+				i++;
+			}
+			storage[i] = '\0';
+		}
+	}
 	return (line);
 }

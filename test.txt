@@ -1,0 +1,6 @@
+Hello World!
+This is a test file.
+Testing get_next_line function.
+Line 4
+Line 5 with some more text
+End of file
