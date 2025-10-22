@@ -1,0 +1,14 @@
+# Compiled binaries
+gnl
+a.out
+*.o
+*.a
+
+# Test files (optional, keep test.txt)
+# test.txt
+
+# System files
+.DS_Store
+*.swp
+*.swo
+*~
